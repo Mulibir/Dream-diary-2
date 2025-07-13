@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Diary & Life Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('connections');
+            const [dreams, setDreams] = useState([]);
+            const [lifeEvents, setLifeEvents] = useState([]);
+            const [connections, setConnections] = useState([]);
+            const [showAddDreamForm, setShowAddDreamForm] = useState(false);
+            const [showAddEventForm, setShowAddEventForm] = useState(false);
+            const [showAddConnectionForm, setShowAddConnectionForm] = useState(false);
+            const [dreamSearchTermForConnection, setDreamSearchTermForConnection] = useState('');
+            
+            const [dreamFormData, setDreamFormData] = useState({
+                title: '', content: '', date: '', time: '', mood: 'neutral', tags: ''
+            });
+
+            const [eventFormData, setEventFormData] = useState({
+                title: '', content: '', date: '', time: '', mood: 'neutral', tags: ''
+            });
+
+            const [connectionFormData, setConnectionFormData] = useState({
+                dreamId: '', lifeEventId: '', notes: ''
+            });
+
+            // Local storage effects
+            useEffect(() => {
+                const savedDreams = localStorage.getItem('dreamDiary_dreams');
+                const savedEvents = localStorage.getItem('dreamDiary_events');
+                const savedConnections = localStorage.getItem('dreamDiary_connections');
+                
+                if (savedDreams) setDreams(JSON.parse(savedDreams));
+                if (savedEvents) setLifeEvents(JSON.parse(savedEvents));
+                if (savedConnections) setConnections(JSON.parse(savedConnections));
+            }, []);
+
+            useEffect(() => { localStorage.setItem('dreamDiary_dreams', JSON.stringify(dreams)); }, [dreams]);
+            useEffect(() => { localStorage.setItem('dreamDiary_events', JSON.stringify(lifeEvents)); }, [lifeEvents]);
+            useEffect(() => { localStorage.setItem('dreamDiary_connections', JSON.stringify(connections)); }, [connections]);
+
+            const handleAddDream = () => {
+                if (!dreamFormData.title.trim()) return;
+                
+                const newDream = {
+                    id: Date.now(),
+                    ...dreamFormData,
+                    tags: dreamFormData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+                    date: dreamFormData.date || new Date().toISOString().split('T')[0]
+                };
+                
+                setDreams(prev => [...prev, newDream]);
+                setDreamFormData({ title: '', content: '', date: '', time: '', mood: 'neutral', tags: '' });
+                setShowAddDreamForm(false);
+            };
+
+            const handleAddEvent = () => {
+                if (!eventFormData.title.trim()) return;
+                
+                const newEvent = {
+                    id: Date.now(),
+                    ...eventFormData,
+                    tags: eventFormData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+                    date: eventFormData.date || new Date().toISOString().split('T')[0]
+                };
+                
+                setLifeEvents(prev => [...prev, newEvent]);
+                setEventFormData({ title: '', content: '', date: '', time: '', mood: 'neutral', tags: '' });
+                setShowAddEventForm(false);
+            };
+
+            const handleAddConnection = () => {
+                if (!connectionFormData.dreamId || !connectionFormData.lifeEventId) return;
+                
+                const newConnection = {
+                    id: Date.now(),
+                    ...connectionFormData,
+                    dreamId: Number(connectionFormData.dreamId),
+                    lifeEventId: Number(connectionFormData.lifeEventId)
+                };
+                
+                setConnections(prev => [...prev, newConnection]);
+                setConnectionFormData({ dreamId: '', lifeEventId: '', notes: '' });
+                setDreamSearchTermForConnection('');
+                setShowAddConnectionForm(false);
+            };
+
+            const filteredDreamsForConnection = dreams.filter(dream => {
+                const lowerSearchTerm = dreamSearchTermForConnection.toLowerCase();
+                const titleMatch = dream.title.toLowerCase().includes(lowerSearchTerm);
+                const contentMatch = dream.content.toLowerCase().includes(lowerSearchTerm);
+                const tagsMatch = dream.tags && Array.isArray(dream.tags) && dream.tags.some(tag => tag.toLowerCase().includes(dreamSearchTermForConnection.toLowerCase()));
+                
+                return titleMatch || contentMatch || tagsMatch;
+            });
+
+            const getConnectedEntryDetails = (connection) => {
+                const dream = dreams.find(d => d.id === connection.dreamId);
+                const event = lifeEvents.find(e => e.id === connection.lifeEventId);
+                return { dream, event };
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="max-w-6xl mx-auto p-6">
+                        <div className="text-center mb-8">
+                            <div className="flex items-center justify-center mb-4">
+                                <span className="text-2xl mr-3">🌙</span>
+                                <h1 className="text-3xl font-bold text-gray-800">Dream Diary & Life Tracker</h1>
+                            </div>
+                            <p className="text-gray-600">Track your dreams and life events to discover meaningful connections</p>
+                        </div>
+
+                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                            <button
+                                onClick={() => setActiveTab('dreams')}
+                                className={`flex items-center px-4 py-2 rounded-full transition-colors ${
+                                    activeTab === 'dreams' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                                🌙 Dreams ({dreams.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('events')}
+                                className={`flex items-center px-4 py-2 rounded-full transition-colors ${
+                                    activeTab === 'events' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                                ⭐ Life Events ({lifeEvents.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('connections')}
+                                className={`flex items-center px-4 py-2 rounded-full transition-colors ${
+                                    activeTab === 'connections' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                                🔗 Connections ({connections.length})
+                            </button>
+                        </div>
+
+                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                            {activeTab === 'dreams' && (
+                                <button onClick={() => setShowAddDreamForm(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                    + Add Dream
+                                </button>
+                            )}
+                            {activeTab === 'events' && (
+                                <button onClick={() => setShowAddEventForm(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                    + Add Event
+                                </button>
+                            )}
+                            {activeTab === 'connections' && (
+                                <button onClick={() => setShowAddConnectionForm(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                    + Add Connection
+                                </button>
+                            )}
+                        </div>
+
+                        {activeTab === 'dreams' && (
+                            <div>
+                                {dreams.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <span className="text-6xl">🌙</span>
+                                        <h3 className="text-xl font-semibold text-gray-600 mb-2 mt-4">Welcome to your Dream Diary!</h3>
+                                        <p className="text-gray-500 mb-6">Start by recording your dreams to discover meaningful connections.</p>
+                                        <button onClick={() => setShowAddDreamForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                                            + Add Your First Dream
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4">
+                                        {dreams.map(dream => (
+                                            <div key={dream.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                                                <h3 className="text-lg font-semibold text-gray-800 mb-2">{dream.title}</h3>
+                                                <p className="text-sm text-gray-500 mb-2">{new Date(dream.date).toLocaleDateString()} • {dream.mood}</p>
+                                                <p className="text-gray-700 mb-3">{dream.content}</p>
+                                                {dream.tags && dream.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {dream.tags.map((tag, index) => (
+                                                            <span key={index} className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-sm">{tag}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'events' && (
+                            <div>
+                                {lifeEvents.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <span className="text-6xl">⭐</span>
+                                        <h3 className="text-xl font-semibold text-gray-600 mb-2 mt-4">No Life Events Yet</h3>
+                                        <p className="text-gray-500 mb-6">Record significant life events to connect with your dreams.</p>
+                                        <button onClick={() => setShowAddEventForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                                            + Add Your First Event
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4">
+                                        {lifeEvents.map(event => (
+                                            <div key={event.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                                                <h3 className="text-lg font-semibold text-gray-800 mb-2">{event.title}</h3>
+                                                <p className="text-sm text-gray-500 mb-2">{new Date(event.date).toLocaleDateString()} • {event.mood}</p>
+                                                <p className="text-gray-700 mb-3">{event.content}</p>
+                                                {event.tags && event.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {event.tags.map((tag, index) => (
+                                                            <span key={index} className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">{tag}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'connections' && (
+                            <div>
+                                {connections.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <span className="text-6xl">🔗</span>
+                                        <h3 className="text-xl font-semibold text-gray-600 mb-2 mt-4">No Connections Yet</h3>
+                                        <p className="text-gray-500 mb-6">
+                                            {dreams.length > 0 && lifeEvents.length > 0
+                                                ? "You have dreams and life events! Now, connect them to find patterns."
+                                                : "Add some dreams and life events first, then connect them here to find patterns and insights."
+                                            }
+                                        </p>
+                                        {dreams.length > 0 && lifeEvents.length > 0 ? (
+                                            <button onClick={() => setShowAddConnectionForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                                                + Create Your First Connection
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => setActiveTab('dreams')} className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                                                + Add Your First Dream
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4">
+                                        {connections.map(connection => {
+                                            const { dream, event } = getConnectedEntryDetails(connection);
+                                            return (
+                                                <div key={connection.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Dream & Life Connection</h3>
+                                                    
+                                                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                                        <div className="bg-indigo-50 p-4 rounded-lg">
+                                                            <h4 className="font-semibold text-indigo-800 mb-2">🌙 Dream</h4>
+                                                            <h5 className="font-medium text-gray-800">{dream?.title}</h5>
+                                                            <p className="text-sm text-gray-600 mt-1">{new Date(dream?.date).toLocaleDateString()}</p>
+                                                        </div>
+                                                        <div className="bg-yellow-50 p-4 rounded-lg">
+                                                            <h4 className="font-semibold text-yellow-800 mb-2">⭐ Life Event</h4>
+                                                            <h5 className="font-medium text-gray-800">{event?.title}</h5>
+                                                            <p className="text-sm text-gray-600 mt-1">{new Date(event?.date).toLocaleDateString()}</p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {connection.notes && (
+                                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <h5 className="font-medium text-gray-800 mb-2">Notes</h5>
+                                                            <p className="text-gray-700">{connection.notes}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showAddDreamForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold">Add New Dream</h2>
+                                        <button onClick={() => setShowAddDreamForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                            <input
+                                                type="text"
+                                                value={dreamFormData.title}
+                                                onChange={(e) => setDreamFormData({...dreamFormData, title: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                placeholder="Brief title for your dream..."
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                                            <textarea
+                                                value={dreamFormData.content}
+                                                onChange={(e) => setDreamFormData({...dreamFormData, content: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 h-24"
+                                                placeholder="Describe your dream in detail..."
+                                            />
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={dreamFormData.date}
+                                                    onChange={(e) => setDreamFormData({...dreamFormData, date: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mood</label>
+                                                <select
+                                                    value={dreamFormData.mood}
+                                                    onChange={(e) => setDreamFormData({...dreamFormData, mood: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    <option value="happy">Happy</option>
+                                                    <option value="neutral">Neutral</option>
+                                                    <option value="sad">Sad</option>
+                                                    <option value="anxious">Anxious</option>
+                                                    <option value="excited">Excited</option>
+                                                    <option value="peaceful">Peaceful</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
+                                            <input
+                                                type="text"
+                                                value={dreamFormData.tags}
+                                                onChange={(e) => setDreamFormData({...dreamFormData, tags: e.target.value})}
+                                                placeholder="e.g., lucid, flying, work, family"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mt-6">
+                                        <button onClick={handleAddDream} className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700">
+                                            💾 Save Dream
+                                        </button>
+                                        <button onClick={() => setShowAddDreamForm(false)} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showAddEventForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold">Add New Life Event</h2>
+                                        <button onClick={() => setShowAddEventForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                            <input
+                                                type="text"
+                                                value={eventFormData.title}
+                                                onChange={(e) => setEventFormData({...eventFormData, title: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                placeholder="Brief title for this life event..."
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                                            <textarea
+                                                value={eventFormData.content}
+                                                onChange={(e) => setEventFormData({...eventFormData, content: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 h-24"
+                                                placeholder="Describe what happened..."
+                                            />
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={eventFormData.date}
+                                                    onChange={(e) => setEventFormData({...eventFormData, date: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mood</label>
+                                                <select
+                                                    value={eventFormData.mood}
+                                                    onChange={(e) => setEventFormData({...eventFormData, mood: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    <option value="happy">Happy</option>
+                                                    <option value="neutral">Neutral</option>
+                                                    <option value="sad">Sad</option>
+                                                    <option value="anxious">Anxious</option>
+                                                    <option value="excited">Excited</option>
+                                                    <option value="peaceful">Peaceful</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
+                                            <input
+                                                type="text"
+                                                value={eventFormData.tags}
+                                                onChange={(e) => setEventFormData({...eventFormData, tags: e.target.value})}
+                                                placeholder="e.g., work, family, travel, achievement"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mt-6">
+                                        <button onClick={handleAddEvent} className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700">
+                                            💾 Save Event
+                                        </button>
+                                        <button onClick={() => setShowAddEventForm(false)} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showAddConnectionForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold">Create New Connection</h2>
+                                        <button onClick={() => setShowAddConnectionForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Search Dreams</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Type to search dreams..."
+                                                value={dreamSearchTermForConnection}
+                                                onChange={(e) => {
+                                                    setDreamSearchTermForConnection(e.target.value);
+                                                    setConnectionFormData({...connectionFormData, dreamId: ''});
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 mb-2"
+                                            />
+                                            
+                                            {filteredDreamsForConnection.length > 0 ? (
+                                                <select
+                                                    key={`select-${dreamSearchTermForConnection}-${filteredDreamsForConnection.length}`}
+                                                    value={connectionFormData.dreamId || ''}
+                                                    onChange={(e) => setConnectionFormData({ ...connectionFormData, dreamId: Number(e.target.value) })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    <option value="">-- Select a Dream --</option>
+                                                    {filteredDreamsForConnection.map(dream => (
+                                                        <option key={`${dream.id}-${dreamSearchTermForConnection}`} value={dream.id}>
+                                                            {dream.title} ({new Date(dream.date).toLocaleDateString()})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <select disabled className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                                                    <option>No dreams match your search</option>
+                                                </select>
+                                            )}
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Life Event</label>
+                                            <select
+                                                value={connectionFormData.lifeEventId}
+                                                onChange={(e) => setConnectionFormData({ ...connectionFormData, lifeEventId: Number(e.target.value) })}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="">-- Select a Life Event --</option>
+                                                {lifeEvents.map(event => (
+                                                    <option key={event.id} value={event.id}>
+                                                        {event.title} ({new Date(event.date).toLocaleDateString()})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                                            <textarea
+                                                value={connectionFormData.notes}
+                                                onChange={(e) => setConnectionFormData({...connectionFormData, notes: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 h-20"
+                                                placeholder="e.g., Felt very similar to this dream..."
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            onClick={handleAddConnection}
+                                            className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+                                        >
+                                            💾 Save Connection
+                                        </button>
+                                        <button
+                                            onClick={() => setShowAddConnectionForm(false)}
+                                            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
